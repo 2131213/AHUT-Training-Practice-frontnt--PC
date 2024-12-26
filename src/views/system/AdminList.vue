@@ -6,13 +6,52 @@
     <el-input v-model="searchParm.nickName" placeholder="请输入姓名">
     </el-input>
     </el-form-item>
-        <el-form-item>
-            <el-button icon="Search">搜索</el-button>
-            <el-button icon="Close" type="danger" plain>重置</el-button>
-                <el-button type="primary" icon="Plus" @click="addBtn"> 新增 
-                </el-button>
-        </el-form-item>
+    <el-form-item>
+    <el-button icon="Search" @click="searchBtn">搜索</el-button>
+    <el-button icon="Close" type="danger" plain @click="resetBtn">重
+    置</el-button>
+    <el-button type="primary" icon="Plus" @click="addBtn">
+        新增
+    </el-button>
+    </el-form-item>
     </el-form>
+    <!-- 表格 -->
+    <el-table :height="tableHeight" :data="tableList" border stripe>
+    <el-table-column prop="nickName" label="姓名"></el-table-column>
+    <el-table-column prop="sex" label="性别" width="100">
+    <template #default="scope">
+    <el-tag v-if="scope.row.sex == '1'" type="danger"
+    effect="dark">女</el-tag>
+    <el-tag v-if="scope.row.sex == '0'" effect="dark">男</el-tag>
+    </template>
+    </el-table-column>
+    <el-table-column prop="phone" label="电话"></el-table-column>
+    <el-table-column prop="username" label="账户"></el-table-column>
+    <el-table-column prop="status" label="状态" width="100">
+    <template #default="scope">
+    <el-tag v-if="scope.row.status == '1'" type="danger"
+    effect="dark">停用</el-tag>
+    <el-tag v-if="scope.row.status == '0'" effect="dark">启用
+    </el-tag>
+    </template>
+    </el-table-column>
+    <el-table-column label="操作" width="400" align="center">
+    <template #default="scope">
+    <el-button type="primary" icon="Edit" size="default"
+    @click="editBtn(scope.row)">编辑</el-button>
+    <el-button type="danger" icon="Delete" size="default"
+    @click="deleteBtn(scope.row)">删除</el-button>
+    </template>
+    </el-table-column>
+    </el-table>
+    <br>
+    <!-- 分页 -->
+    <el-pagination @size-change="sizeChange" @current-change="curChange"
+    :current-page.sync="searchParm.curPage"
+    :page-sizes="[2, 3, 4, 5, 10]" :page-size="searchParm.pageSize"
+    layout="total, sizes, prev, pager, next, jumper"
+    :total="searchParm.total" background>
+    </el-pagination>
     <!-- 新增、编辑弹框 -->
     <SysDialog :title="dialog.title" :width="dialog.width"
     :height="dialog.height" :visible="dialog.visible"
@@ -20,14 +59,14 @@
     <template v-slot:content>
     <el-form :model="addModel" ref="addFormRef" :rules="rules"
     :inline="false" label-width="80px"
-    size="normal">
+    size="default">
     <el-form-item prop="nickName" label="姓名">
     <el-input v-model="addModel.nickName"></el-input>
     </el-form-item>
     <el-form-item prop="sex" label="性别">
     <el-radio-group v-model="addModel.sex">
-    <el-radio :label="'0'">男</el-radio>
-    <el-radio :label="'1'">女</el-radio>
+    <el-radio :value="'0'">男</el-radio>
+    <el-radio :value="'1'">女</el-radio>
     </el-radio-group>
     </el-form-item>
     <el-form-item prop="phone" label="电话">
@@ -41,8 +80,8 @@
     </el-form-item>
     <el-form-item prop="status" label="状态">
     <el-radio-group v-model="addModel.status">
-    <el-radio :label="'0'">启用</el-radio>
-    <el-radio :label="'1'">停用</el-radio>
+    <el-radio :value="'0'">启用</el-radio>
+    <el-radio :value="'1'">停用</el-radio>
     </el-radio-group>
     </el-form-item>
     </el-form>
@@ -51,37 +90,144 @@
     </el-main>
     </template>
     <script setup lang="ts">
-    import { reactive } from "vue";
+    import { reactive, ref, onMounted, nextTick } from "vue";
     import SysDialog from "@/components/SysDialog.vue";
     import useDialog from "@/hooks/useDialog";
     import { User } from "@/api/user/UserModel";
+    import { addSysUserApi, getListApi, editApi, deleteApi } from
+    "@/api/user/index";
+    import { FormInstance, ElMessage, ElMessageBox } from "element-plus";
     //获取弹框属性
     const { dialog, onClose, onConfirm } = useDialog();
+    //表单ref属性
+    const addFormRef = ref<FormInstance>()
     //搜索绑定的对象
     const searchParm = reactive({
     nickName: "",
+    pageSize: 3,
+    curPage: 1,
+    total: 10
     });
+    //表单绑定的数据对象
+    const addModel = reactive<User>({
+    userId: "",
+    username: "",
+    password: "",
+    nickName: "",
+    phone: "",
+    sex: "0",
+    status: "0",
+    });
+    //标识符
+    const tags = ref('')
     //新增按钮
     const addBtn = () => {
+    tags.value = "0"
     dialog.title = '新增'
     dialog.height = 350
     dialog.width = 500
     dialog.visible = true
+    //清空表单
+    addFormRef.value?.resetFields();
     };
-    //搜索按钮
-    const searchBtn = () => {};
-    //重置按钮
-    const resetBtn = () => {};
-    //表单绑定的数据对象
-    const addModel = reactive<User>({
-        userId: "",
-        username: "",
-        password: "",
-        nickName: "",
-        phone: "",
-        sex: "",
-        status: "",
+    //编辑
+    const editBtn = (row: User) => {
+    tags.value = "1"
+    dialog.title = '新增'
+    dialog.height = 350
+    dialog.width = 500
+    dialog.visible = true
+    //设置回显数据
+    nextTick(() => {
+    Object.assign(addModel, row)
+    })
+    //清空表单
+    addFormRef.value?.resetFields();
+    }
+    //删除
+    const deleteBtn = (row: User) => {
+    ElMessageBox.confirm('确定删除该数据吗?', '系统提示',
+    {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+    }).then(async () => {
+    let res = await deleteApi(row.userId)
+    if (res.code == 200) {
+    ElMessage.success(res.msg)
+    getList()
+    }
+    }).catch(() => {
+    ElMessage.info("删除已取消！")
+    })
+    }
+    //提交按钮
+    const commit = () => {
+    //表单验证
+    addFormRef.value?.validate(async (valid) => {
+    if (valid) {
+    // console.log(addModel);
+    //提交数据
+    let res = null
+    if (tags.value == "0") {
+    addModel.userId = ''
+    res = await addSysUserApi(addModel);
+    } else {
+    res = await editApi(addModel);
+    }
+    if (res && res.code == 200) {
+    //信息提示
+    ElMessage.success(res.msg)
+    getList()
+    //关闭弹框
+    dialog.visible = false;
+    }
+    } else {
+    ElMessage.error("验证未通过！重新填写信息！！！")
+    }
     });
+    };
+    //表格高度
+    const tableHeight = ref(0)
+    //表格数据
+    const tableList = ref([])
+    //获取查询数据
+    const getList = async () => {
+    let res = await getListApi(searchParm)
+    //console.log(res)
+    if (res && res.code == 200) {
+    //console.log(res)
+    tableList.value = res.data.records;
+    searchParm.total = res.data.total;
+    }
+    }
+    //页容量改变时触发
+    const sizeChange = (size: number) => {
+    //console.log(size)
+    searchParm.pageSize = size
+    getList()
+    }
+    //页数改变时触发
+    const curChange = (page: number) => {
+    // console.log(page)
+    searchParm.curPage = page
+    getList()
+    }
+    //搜索按钮
+    const searchBtn = () => {
+    getList()
+    };
+    //重置按钮
+    const resetBtn = () => {
+    searchParm.nickName = ''
+    getList()
+    };
+    //页面加载时触发
+    onMounted(() => {
+    //计算表格高度
+    tableHeight.value = window.innerHeight - 200
+    getList()
+    })
     //表单验证规则
     //1.el-form-item加prop属性
     //2.编写表单验证规则 rules
@@ -93,7 +239,5 @@
     phone: [{ required: true, message: "请输入电话", trigger: "blur" }],
     sex: [{ required: true, message: "请输入性别", trigger: "blur" }],
     });
-    //提交按钮
-    const commit = () => {};
     </script>
     <style scoped></style>

@@ -10,7 +10,7 @@
     import { collapseStore } from '@/store/collapse/index';
     // 引入 collapseStore
     const store = collapseStore()
-    const title = ref("文都易物空间");
+    const title = ref("AHUT实训项目");
     const show = ref(true)
     watch(
     ()=>store.getCollapse,

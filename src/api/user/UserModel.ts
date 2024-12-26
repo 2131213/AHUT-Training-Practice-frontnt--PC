@@ -7,3 +7,11 @@ export type User = {
     sex: string,
     status: string
 }
+
+//定义列表查询的参数
+export type ListParam = {
+    curPage: number,
+    pageSize: number,
+    nickName: string,
+    total?: number
+}
